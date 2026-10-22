@@ -1,0 +1,729 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Animal Collective Behavior Simulator</title>
+  <style>
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: Arial, Helvetica, sans-serif;
+      background: #0b132b;
+      color: white;
+      overflow: hidden;
+    }
+
+    #app {
+      display: grid;
+      grid-template-columns: 290px 1fr;
+      height: 100vh;
+      min-height: 100dvh;
+    }
+
+    @media (max-width: 700px) {
+      body {
+        overflow: auto;
+      }
+
+      #app {
+        display: flex;
+        flex-direction: column;
+        height: auto;
+        min-height: 100dvh;
+      }
+
+      #panel {
+        width: 100%;
+        max-height: none;
+        border-right: none;
+        border-bottom: 1px solid rgba(255,255,255,0.15);
+      }
+
+      #canvasWrap {
+        width: 100%;
+        height: 65dvh;
+        min-height: 420px;
+      }
+    }
+
+    #panel {
+      background: rgba(8, 18, 45, 0.96);
+      padding: 18px;
+      overflow-y: auto;
+      border-right: 1px solid rgba(255,255,255,0.15);
+    }
+
+    h1 {
+      font-size: 20px;
+      margin: 0 0 6px;
+    }
+
+    .subtitle {
+      font-size: 12px;
+      line-height: 1.45;
+      color: #c7d2fe;
+      margin-bottom: 18px;
+    }
+
+    .group {
+      margin-bottom: 16px;
+      padding-bottom: 12px;
+      border-bottom: 1px solid rgba(255,255,255,0.12);
+    }
+
+    label {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 13px;
+      margin-bottom: 6px;
+    }
+
+    input[type="range"] {
+      width: 100%;
+    }
+
+    select, button {
+      width: 100%;
+      margin-top: 6px;
+      padding: 9px;
+      border: none;
+      border-radius: 8px;
+      font-size: 13px;
+    }
+
+    select {
+      background: #e5e7eb;
+      color: #111827;
+    }
+
+    button {
+      background: #e0e7ff;
+      color: #111827;
+      cursor: pointer;
+      font-weight: bold;
+    }
+
+    button:hover {
+      background: #c7d2fe;
+    }
+
+    .value {
+      font-weight: bold;
+      color: #a5b4fc;
+      margin-left: 8px;
+    }
+
+    .rules {
+      font-size: 12px;
+      line-height: 1.5;
+      color: #dbeafe;
+      padding-left: 17px;
+      margin-top: 8px;
+    }
+
+    #canvasWrap {
+      position: relative;
+      overflow: hidden;
+      min-width: 0;
+    }
+
+    canvas {
+      width: 100%;
+      height: 100%;
+      display: block;
+    }
+
+    #status {
+      position: absolute;
+      right: 14px;
+      top: 14px;
+      background: rgba(0,0,0,0.45);
+      padding: 8px 10px;
+      border-radius: 9px;
+      font-size: 12px;
+      pointer-events: none;
+    }
+
+    .switchrow {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-top: 8px;
+      font-size: 13px;
+    }
+  </style>
+</head>
+<body>
+<div id="app">
+  <aside id="panel">
+    <h1>Collective Behavior Simulator</h1>
+    <div class="subtitle">
+      A Boids-style simulation showing how simple local rules can create realistic group behavior.
+    </div>
+
+    <div class="group">
+      <strong>Agent Settings</strong>
+
+      <label>Number of animals <span class="value" id="countVal">100</span></label>
+      <input id="count" type="range" min="10" max="300" value="100" step="1">
+
+      <label>Max speed <span class="value" id="speedVal">3.0</span></label>
+      <input id="speed" type="range" min="0.5" max="6" value="3" step="0.1">
+
+      <label>Perception radius <span class="value" id="radiusVal">70</span></label>
+      <input id="radius" type="range" min="20" max="150" value="70" step="1">
+    </div>
+
+    <div class="group">
+      <strong>Interaction Rules</strong>
+
+      <label>Separation <span class="value" id="sepVal">1.5</span></label>
+      <input id="separation" type="range" min="0" max="3" value="1.5" step="0.05">
+
+      <label>Alignment <span class="value" id="aliVal">1.0</span></label>
+      <input id="alignment" type="range" min="0" max="3" value="1" step="0.05">
+
+      <label>Cohesion <span class="value" id="cohVal">1.0</span></label>
+      <input id="cohesion" type="range" min="0" max="3" value="1" step="0.05">
+    </div>
+
+    <div class="group">
+      <strong>Environment</strong>
+      <label style="display:block; margin-top:8px;">Creature type</label>
+      <select id="creature">
+        <option value="fish">Fish</option>
+        <option value="bird">Birds</option>
+      </select>
+
+      <label style="display:block; margin-top:10px;">Background</label>
+      <select id="environment">
+        <option value="ocean">Ocean</option>
+        <option value="sky">Sky</option>
+        <option value="night">Night</option>
+      </select>
+
+      <div class="switchrow">
+        <span>Show perception circles</span>
+        <input id="showRadius" type="checkbox">
+      </div>
+
+      <div class="switchrow">
+        <span>Predator</span>
+        <input id="predatorToggle" type="checkbox">
+      </div>
+    </div>
+
+    <div class="group">
+      <button id="resetBtn">Reset Simulation</button>
+      <button id="randomBtn">Randomize Settings</button>
+    </div>
+
+    <div>
+      <strong>Three Main Rules</strong>
+      <ol class="rules">
+        <li>Move away from very nearby neighbors.</li>
+        <li>Avoid becoming isolated from the group.</li>
+        <li>Move in the same direction as nearby neighbors.</li>
+      </ol>
+    </div>
+  </aside>
+
+  <main id="canvasWrap">
+    <canvas id="canvas"></canvas>
+    <div id="status">Starting simulation...</div>
+  </main>
+</div>
+
+<script>
+const canvas = document.getElementById("canvas");
+const ctx = canvas.getContext("2d");
+const wrap = document.getElementById("canvasWrap");
+
+let dpr = window.devicePixelRatio || 1;
+
+function resizeCanvas() {
+  const rect = wrap.getBoundingClientRect();
+  const width = Math.max(rect.width, window.innerWidth < 700 ? window.innerWidth : 300);
+  const height = Math.max(
+    rect.height,
+    window.innerWidth < 700 ? Math.max(window.innerHeight * 0.65, 420) : 300
+  );
+
+  canvas.width = Math.floor(width * dpr);
+  canvas.height = Math.floor(height * dpr);
+  canvas.style.width = width + "px";
+  canvas.style.height = height + "px";
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+}
+window.addEventListener("resize", resizeCanvas);
+window.addEventListener("orientationchange", () => {
+  setTimeout(resizeCanvas, 150);
+});
+
+function initCanvasSize() {
+  resizeCanvas();
+  setTimeout(resizeCanvas, 100);
+  setTimeout(resizeCanvas, 400);
+}
+
+if (document.readyState === "loading") {
+  document.addEventListener("DOMContentLoaded", initCanvasSize);
+} else {
+  initCanvasSize();
+}
+
+const ui = {
+  count: document.getElementById("count"),
+  speed: document.getElementById("speed"),
+  radius: document.getElementById("radius"),
+  separation: document.getElementById("separation"),
+  alignment: document.getElementById("alignment"),
+  cohesion: document.getElementById("cohesion"),
+  creature: document.getElementById("creature"),
+  environment: document.getElementById("environment"),
+  showRadius: document.getElementById("showRadius"),
+  predatorToggle: document.getElementById("predatorToggle"),
+};
+
+const displays = {
+  count: document.getElementById("countVal"),
+  speed: document.getElementById("speedVal"),
+  radius: document.getElementById("radiusVal"),
+  separation: document.getElementById("sepVal"),
+  alignment: document.getElementById("aliVal"),
+  cohesion: document.getElementById("cohVal"),
+};
+
+function updateLabels() {
+  displays.count.textContent = ui.count.value;
+  displays.speed.textContent = Number(ui.speed.value).toFixed(1);
+  displays.radius.textContent = ui.radius.value;
+  displays.separation.textContent = Number(ui.separation.value).toFixed(2);
+  displays.alignment.textContent = Number(ui.alignment.value).toFixed(2);
+  displays.cohesion.textContent = Number(ui.cohesion.value).toFixed(2);
+}
+
+Object.values(ui).forEach(el => {
+  if (el && el.addEventListener) {
+    el.addEventListener("input", updateLabels);
+  }
+});
+updateLabels();
+
+class Vector {
+  constructor(x = 0, y = 0) {
+    this.x = x;
+    this.y = y;
+  }
+
+  add(v) {
+    this.x += v.x;
+    this.y += v.y;
+    return this;
+  }
+
+  sub(v) {
+    this.x -= v.x;
+    this.y -= v.y;
+    return this;
+  }
+
+  mult(n) {
+    this.x *= n;
+    this.y *= n;
+    return this;
+  }
+
+  div(n) {
+    if (n !== 0) {
+      this.x /= n;
+      this.y /= n;
+    }
+    return this;
+  }
+
+  mag() {
+    return Math.hypot(this.x, this.y);
+  }
+
+  setMag(n) {
+    const m = this.mag();
+    if (m > 0) {
+      this.mult(n / m);
+    }
+    return this;
+  }
+
+  limit(max) {
+    if (this.mag() > max) this.setMag(max);
+    return this;
+  }
+
+  copy() {
+    return new Vector(this.x, this.y);
+  }
+
+  static sub(a, b) {
+    return new Vector(a.x - b.x, a.y - b.y);
+  }
+}
+
+class Boid {
+  constructor() {
+    const w = wrap.clientWidth;
+    const h = wrap.clientHeight;
+
+    this.position = new Vector(
+      Math.random() * w,
+      Math.random() * h
+    );
+
+    const angle = Math.random() * Math.PI * 2;
+    this.velocity = new Vector(
+      Math.cos(angle),
+      Math.sin(angle)
+    ).setMag(1 + Math.random() * 2);
+
+    this.acceleration = new Vector();
+  }
+
+  applyForce(force) {
+    this.acceleration.add(force);
+  }
+
+  flock(boids) {
+    const separation = this.separate(boids)
+      .mult(Number(ui.separation.value));
+
+    const alignment = this.align(boids)
+      .mult(Number(ui.alignment.value));
+
+    const cohesion = this.cohere(boids)
+      .mult(Number(ui.cohesion.value));
+
+    this.applyForce(separation);
+    this.applyForce(alignment);
+    this.applyForce(cohesion);
+
+    if (ui.predatorToggle.checked) {
+      this.avoidPredator();
+    }
+  }
+
+  neighbors(boids) {
+    const perception = Number(ui.radius.value);
+    return boids.filter(other => {
+      if (other === this) return false;
+      const dx = this.position.x - other.position.x;
+      const dy = this.position.y - other.position.y;
+      return dx * dx + dy * dy < perception * perception;
+    });
+  }
+
+  separate(boids) {
+    const perception = Number(ui.radius.value) * 0.55;
+    const steering = new Vector();
+    let total = 0;
+
+    for (const other of boids) {
+      if (other === this) continue;
+
+      const dx = this.position.x - other.position.x;
+      const dy = this.position.y - other.position.y;
+      const distance = Math.hypot(dx, dy);
+
+      if (distance > 0 && distance < perception) {
+        const diff = new Vector(dx, dy);
+        diff.div(distance * distance);
+        steering.add(diff);
+        total++;
+      }
+    }
+
+    if (total > 0) {
+      steering.div(total);
+      steering.setMag(Number(ui.speed.value));
+      steering.sub(this.velocity);
+      steering.limit(0.08);
+    }
+
+    return steering;
+  }
+
+  align(boids) {
+    const nearby = this.neighbors(boids);
+    const steering = new Vector();
+
+    if (nearby.length === 0) return steering;
+
+    for (const other of nearby) {
+      steering.add(other.velocity);
+    }
+
+    steering.div(nearby.length);
+    steering.setMag(Number(ui.speed.value));
+    steering.sub(this.velocity);
+    steering.limit(0.055);
+
+    return steering;
+  }
+
+  cohere(boids) {
+    const nearby = this.neighbors(boids);
+    const center = new Vector();
+
+    if (nearby.length === 0) return center;
+
+    for (const other of nearby) {
+      center.add(other.position);
+    }
+
+    center.div(nearby.length);
+
+    const desired = Vector.sub(center, this.position);
+    desired.setMag(Number(ui.speed.value));
+    desired.sub(this.velocity);
+    desired.limit(0.045);
+
+    return desired;
+  }
+
+  avoidPredator() {
+    const dx = this.position.x - predator.x;
+    const dy = this.position.y - predator.y;
+    const dist = Math.hypot(dx, dy);
+
+    if (dist < 160) {
+      const flee = new Vector(dx, dy)
+        .setMag(0.18);
+      this.applyForce(flee);
+    }
+  }
+
+  update() {
+    const maxSpeed = Number(ui.speed.value);
+
+    this.velocity.add(this.acceleration);
+    this.velocity.limit(maxSpeed);
+    this.position.add(this.velocity);
+
+    this.acceleration.mult(0);
+    this.edges();
+  }
+
+  edges() {
+    const w = wrap.clientWidth;
+    const h = wrap.clientHeight;
+    const margin = 20;
+
+    if (this.position.x < -margin) this.position.x = w + margin;
+    if (this.position.x > w + margin) this.position.x = -margin;
+
+    if (this.position.y < -margin) this.position.y = h + margin;
+    if (this.position.y > h + margin) this.position.y = -margin;
+  }
+
+  draw() {
+    const angle = Math.atan2(this.velocity.y, this.velocity.x);
+
+    if (ui.showRadius.checked) {
+      ctx.beginPath();
+      ctx.arc(
+        this.position.x,
+        this.position.y,
+        Number(ui.radius.value),
+        0,
+        Math.PI * 2
+      );
+      ctx.strokeStyle = "rgba(255,255,255,0.04)";
+      ctx.stroke();
+    }
+
+    ctx.save();
+    ctx.translate(this.position.x, this.position.y);
+    ctx.rotate(angle);
+
+    if (ui.creature.value === "fish") {
+      drawFish(ctx);
+    } else {
+      drawBird(ctx);
+    }
+
+    ctx.restore();
+  }
+}
+
+function drawFish(ctx) {
+  ctx.beginPath();
+  ctx.ellipse(0, 0, 9, 4, 0, 0, Math.PI * 2);
+  ctx.fillStyle = "rgba(235,245,255,0.96)";
+  ctx.fill();
+  ctx.strokeStyle = "rgba(20,35,55,0.65)";
+  ctx.lineWidth = 0.8;
+  ctx.stroke();
+
+  ctx.beginPath();
+  ctx.moveTo(-8, 0);
+  ctx.lineTo(-15, -6);
+  ctx.lineTo(-14, 6);
+  ctx.closePath();
+  ctx.fillStyle = "rgba(174,220,255,0.85)";
+  ctx.fill();
+
+  ctx.beginPath();
+  ctx.arc(5, -1.2, 1, 0, Math.PI * 2);
+  ctx.fillStyle = "#0b132b";
+  ctx.fill();
+}
+
+function drawBird(ctx) {
+  ctx.strokeStyle = "rgba(245,245,255,0.95)";
+  ctx.lineWidth = 2;
+
+  ctx.beginPath();
+  ctx.moveTo(-8, 3);
+  ctx.quadraticCurveTo(-2, -5, 0, 0);
+  ctx.quadraticCurveTo(3, -5, 9, 3);
+  ctx.stroke();
+}
+
+const predator = {
+  x: wrap.clientWidth * 0.5,
+  y: wrap.clientHeight * 0.5,
+  angle: 0
+};
+
+function updatePredator() {
+  predator.angle += 0.006;
+  const w = wrap.clientWidth;
+  const h = wrap.clientHeight;
+
+  predator.x = w / 2 + Math.cos(predator.angle) * w * 0.30;
+  predator.y = h / 2 + Math.sin(predator.angle * 1.4) * h * 0.28;
+}
+
+function drawPredator() {
+  if (!ui.predatorToggle.checked) return;
+
+  ctx.save();
+  ctx.translate(predator.x, predator.y);
+
+  ctx.beginPath();
+  ctx.moveTo(18, 0);
+  ctx.lineTo(-15, -10);
+  ctx.lineTo(-8, 0);
+  ctx.lineTo(-15, 10);
+  ctx.closePath();
+
+  ctx.fillStyle = "rgba(255,255,255,0.7)";
+  ctx.fill();
+  ctx.restore();
+}
+
+let boids = [];
+
+function resetBoids() {
+  boids = [];
+  let count = Number(ui.count.value);
+
+  if (window.innerWidth < 700 && count > 120) {
+    count = 120;
+  }
+
+  for (let i = 0; i < count; i++) {
+    boids.push(new Boid());
+  }
+}
+
+resetBoids();
+
+ui.count.addEventListener("change", resetBoids);
+
+document.getElementById("resetBtn").addEventListener("click", resetBoids);
+
+document.getElementById("randomBtn").addEventListener("click", () => {
+  ui.separation.value = (Math.random() * 2.5 + 0.3).toFixed(2);
+  ui.alignment.value = (Math.random() * 2.5 + 0.3).toFixed(2);
+  ui.cohesion.value = (Math.random() * 2.5 + 0.3).toFixed(2);
+  ui.speed.value = (Math.random() * 4 + 1).toFixed(1);
+  ui.radius.value = Math.floor(Math.random() * 90 + 40);
+
+  updateLabels();
+  resetBoids();
+});
+
+function drawBackground() {
+  const w = wrap.clientWidth;
+  const h = wrap.clientHeight;
+  const env = ui.environment.value;
+
+  const grad = ctx.createLinearGradient(0, 0, 0, h);
+
+  if (env === "ocean") {
+    grad.addColorStop(0, "#123c69");
+    grad.addColorStop(1, "#061826");
+  } else if (env === "sky") {
+    grad.addColorStop(0, "#6fa8dc");
+    grad.addColorStop(1, "#d9eaf7");
+  } else {
+    grad.addColorStop(0, "#050816");
+    grad.addColorStop(1, "#11162b");
+  }
+
+  ctx.fillStyle = grad;
+  ctx.fillRect(0, 0, w, h);
+
+  if (env === "ocean") {
+    for (let i = 0; i < 35; i++) {
+      const x = (i * 89 + performance.now() * 0.006) % w;
+      const y = (i * 67) % h;
+      ctx.beginPath();
+      ctx.arc(x, y, 1.3, 0, Math.PI * 2);
+      ctx.fillStyle = "rgba(255,255,255,0.14)";
+      ctx.fill();
+    }
+  }
+
+  if (env === "night") {
+    for (let i = 0; i < 55; i++) {
+      const x = (i * 137) % w;
+      const y = (i * 79) % h;
+      ctx.fillStyle = "rgba(255,255,255,0.55)";
+      ctx.fillRect(x, y, 1.2, 1.2);
+    }
+  }
+}
+
+function animate() {
+  drawBackground();
+
+  if (ui.predatorToggle.checked) {
+    updatePredator();
+    drawPredator();
+  }
+
+  for (const boid of boids) {
+    boid.flock(boids);
+  }
+
+  for (const boid of boids) {
+    boid.update();
+    boid.draw();
+  }
+
+  document.getElementById("status").textContent =
+    `${boids.length} agents | ${ui.creature.value} | ${ui.environment.value}`;
+
+  requestAnimationFrame(animate);
+}
+
+requestAnimationFrame(() => {
+  resizeCanvas();
+  resetBoids();
+  animate();
+});
+</script>
+</body>
+</html>
